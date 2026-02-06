@@ -60,6 +60,12 @@ scrape_configs:
             status_code: status_code
       - labels:
           level:
+      - structured_metadata:
+          msg:
+          caller:
+          worker_name:
+          job_id:
+          log_file_name:
       - timestamp:
           source: timestamp
           format: "2006-01-02T15:04:05.000Z07:00"

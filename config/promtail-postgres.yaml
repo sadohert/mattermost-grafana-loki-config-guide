@@ -44,16 +44,24 @@ scrape_configs:
           instance: "<PG_HOSTNAME>"
           # Adjust the path below to match your PostgreSQL installation.
           # The example uses the default Amazon Linux / RHEL path for PostgreSQL 15.
-          __path__: /var/lib/pgsql/15/data/log/*.log
+          __path__: /var/log/postgresql/*.json
 
     pipeline_stages:
-      - multiline:
-          firstline: '^\d{4}-\d{2}-\d{2}'
-          max_wait_time: 3s
-      - regex:
-          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \w+) \[(?P<pid>\d+)\] (?P<level>\w+):\s+(?P<message>.*)'
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: error_severity
+            msg: message
+            pid: pid
+            user_name: user
+            database_name: dbname
+            application_name: application_name
       - labels:
           level:
+      - structured_metadata:
+          user_name:
+          database_name:
+          application_name:
       - timestamp:
           source: timestamp
           format: "2006-01-02 15:04:05.000 MST"

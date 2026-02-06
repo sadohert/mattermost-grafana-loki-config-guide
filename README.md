@@ -98,7 +98,7 @@ Key settings to be aware of:
 
 Key settings to be aware of:
 
-- **`__path__`** — Defaults to the RHEL/Amazon Linux path for PostgreSQL 15. See the comments in the file for Ubuntu/Debian paths. Does not apply to Amazon RDS.
+- **`__path__`** — Defaults to `/var/log/postgresql/*.json` (Ubuntu/Debian JSON logging). Adjust if using Text/CSV logs.
 
 ---
 
@@ -116,3 +116,70 @@ Key settings to be aware of:
 | Log Browser | Searchable, filterable log viewer with template variables |
 
 **Template variables:** `service_name`, `instance`, `log_level`, `search` (free-text)
+
+---
+
+## Troubleshooting
+
+### "I don't see any logs in Grafana"
+
+1. **Check Log Level**: Ensure your Mattermost server is actually generating logs. If the server is idle and Log Level is set to `ERROR`, the file will be empty.
+   - **Fix**: Temporarily set **File Log Level** to `DEBUG` or `INFO` in the System Console to verify flow.
+2. **Check Connectivity**: Run `curl -v http://<LOKI_HOST>:3100/ready` from the app server to verify the firewall is open.
+3. **Check Permissions**: Ensure the `promtail` user can read the log file (e.g., `sudo -u promtail cat /opt/mattermost/logs/mattermost.log`).
+
+---
+
+## Demo Script
+
+Use this script to demonstrate the power of unified observability in Grafana (Metrics + Logs side-by-side).
+
+1. **Open Explore**:
+   - Click the **Compass icon** (Explore) in the left sidebar.
+   - **Split** the view (button in top toolbar) so you have two panels.
+
+2. **Query Metrics (Left Panel)**:
+   - Data Source: **Prometheus**.
+   - **Scenario A (Throughput)**:
+     - Metric: `sum(rate(mattermost_api_time_count[5m])) by (instance)`
+     - Meaning: Total API Requests per second per server.
+   - **Scenario B (Saturation)**:
+     - Metric: `label_replace(100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100), "instance", "$1", "instance", "(.*):.*")`
+     - Meaning: CPU Usage % per server (port stripped for cleaner matching).
+   - **Note**: Run only *one* Scenario at a time. Explore uses a single Y-axis, so mixing "Requests/sec" (10s-100s) with "CPU %" or "Latency" (0-1) will distort the graph.
+   - Action: Click **Run Query**.
+
+3. **Query Logs (Right Panel)**:
+   - Data Source: **Loki**.
+   - Filter: `{job="mattermost"} | json | level="error"`
+   - Action: Click **Run Query**.
+
+4. **Correlate**:
+   - Click the **Chain Icon** (top toolbar) to sync time ranges.
+   - **Zoom in** on a spike in the CPU or Request graph.
+   - The Loki panel will automatically filter to show *exactly* the logs from that high-load timeframe.
+
+5. **Build Dashboard**:
+   - Click **Add to Dashboard** -> **New Dashboard**.
+   - Layout the graph and logs side-by-side for a permanent "Battle Station" view.
+
+6. **Make it Dynamic (Bonus)**:
+   - "Explore" queries are static. To get Dropdowns (Variables):
+   - **Step A**: Go to **Dashboard Settings** (Gear Icon) -> **Variables** -> **Add Variable**.
+   - **Step B**: Configure the Variable:
+     - **Name**: `instance`
+     - **Label**: `Instance`
+     - **Type**: `Query`
+     - **Data Source**: `Prometheus`
+     - **Query Type**: `Label values`
+     - **Label**: `instance` (Select from dropdown)
+     - **Metric**: *(Optional - Select `node_cpu_seconds_total` if you want to filter)*
+     - *(Note: You don't type a raw query here; just use the dropdowns)*
+   - **Step C**: Make it Multi-select:
+     - Check **Multi-value**: `On`
+     - Check **Include All option**: `On`
+   - **Step D**: Update your Panel Queries:
+     - Change: `sum(rate(mattermost_api_time_count[5m])) by (instance)`
+     - To: `sum(rate(mattermost_api_time_count{instance=~"$instance"}[5m])) by (instance)`
+     - *(Notice the curly braces `{}` and the `=~` for regex matching)*
+   - **Step E**: Click **Apply**. Now you have a professional dropdown!
