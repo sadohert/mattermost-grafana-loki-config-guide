@@ -1,0 +1,68 @@
+# Promtail configuration for Mattermost log collection
+# Runs on each Mattermost application server and ships logs to Loki.
+#
+# Install location: /opt/promtail/promtail-config.yaml
+#
+# !! IMPORTANT !!
+# This config assumes Mattermost is installed at the default location:
+#
+#     /opt/mattermost
+#
+# If your Mattermost installation is elsewhere, update the __path__ value
+# under scrape_configs > labels to point to your actual log file.
+# For example, if Mattermost is at /home/mattermost:
+#
+#     __path__: /home/mattermost/logs/mattermost.log
+#
+# Before using this config, replace the following placeholders:
+#
+#   <LOKI_HOST>   — IP or hostname of the server where Loki is running.
+#                   This is your Grafana/Prometheus monitoring server.
+#                   Example: 10.0.1.50  or  monitoring.internal
+#                   Use "localhost" only if Loki runs on this same machine.
+#
+#   <MM_HOSTNAME> — This Mattermost server's hostname (e.g., mm-app-01).
+#                   Used as a label so you can filter logs per server in Grafana.
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /opt/promtail/positions.yaml
+
+clients:
+  - url: http://<LOKI_HOST>:3100/loki/api/v1/push
+
+scrape_configs:
+  # -----------------------------------------------------------------
+  # Mattermost application logs
+  # -----------------------------------------------------------------
+  - job_name: mattermost
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          service_name: app
+          job: mattermost
+          instance: "<MM_HOSTNAME>"
+          __path__: /opt/mattermost/logs/mattermost.log
+
+    # Mattermost writes JSON-formatted logs by default.
+    # The pipeline below extracts key fields so you can filter
+    # and query on them in Grafana (e.g., {service_name="app"} | level="error").
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            msg: msg
+            caller: caller
+            status_code: status_code
+      - labels:
+          level:
+      - timestamp:
+          source: timestamp
+          format: "2006-01-02T15:04:05.000Z07:00"
+          fallback_formats:
+            - "2006-01-02T15:04:05Z07:00"
+            - "RFC3339"
