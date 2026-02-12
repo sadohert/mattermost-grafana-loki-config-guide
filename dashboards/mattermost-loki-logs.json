@@ -57,7 +57,7 @@
           "custom": {
             "axisBorderShow": false,
             "axisCenteredZero": false,
-            "axisLabel": "logs / sec",
+            "axisLabel": "Count",
             "drawStyle": "bars",
             "fillOpacity": 80,
             "gradientMode": "none",
@@ -159,8 +159,8 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(rate({service_name=~\"$service_name\", instance=~\"$instance\"} [$__auto])) by (level)",
-          "legendFormat": "{{level}}",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=~\"$log_level\" [$__auto])) by (detected_level)",
+          "legendFormat": "{{detected_level}}",
           "refId": "A"
         }
       ]
@@ -222,7 +222,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(count_over_time({service_name=~\"$service_name\", instance=~\"$instance\"} | json | level=\"error\" [$__auto]))",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=\"error\" [$__auto]))",
           "refId": "A"
         }
       ]
@@ -283,7 +283,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(count_over_time({service_name=~\"$service_name\", instance=~\"$instance\"} | json | level=\"warn\" [$__auto]))",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=\"warn\" [$__auto]))",
           "refId": "A"
         }
       ]
@@ -336,7 +336,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(count_over_time({service_name=~\"$service_name\", instance=~\"$instance\"} [$__auto]))",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} [$__auto]))",
           "refId": "A"
         }
       ]
@@ -393,7 +393,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(count_over_time({service_name=~\"$service_name\", instance=~\"$instance\"} | json | status_code >= 400 [$__auto]))",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | status_code >= 400 [$__auto]))",
           "refId": "A"
         }
       ]
@@ -459,8 +459,8 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(rate({service_name=~\"$service_name\", instance=~\"$instance\"} | json | level=\"error\" [$__auto])) by (instance)",
-          "legendFormat": "{{instance}}",
+          "expr": "sum(rate({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=\"error\" [$__auto])) by (service_instance_id)",
+          "legendFormat": "{{service_instance_id}}",
           "refId": "A"
         }
       ]
@@ -514,7 +514,7 @@
           }
         ]
       },
-      "title": "Top Error Messages (5 min windows)",
+      "title": "Top Error Messages",
       "type": "table",
       "targets": [
         {
@@ -522,8 +522,32 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "topk(10, sum(count_over_time({service_name=~\"$service_name\", instance=~\"$instance\"} | json | level=\"error\" [5m])) by (msg))",
+          "expr": "topk(10, sum by (service_name, log_message) (count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=\"error\" | json | label_format log_message=\"{{or .msg .message}}\" [$__range])))",
+          "queryType": "instant",
           "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {},
+            "renameByName": {
+              "Value": "Count",
+              "Value #A": "Count",
+              "log_message": "Message",
+              "service_name": "Service"
+            }
+          }
         }
       ]
     },
@@ -560,7 +584,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service_name=~\"$service_name\", instance=~\"$instance\"} | json | level=~\"$log_level\" |~ \"$search\"",
+          "expr": "{service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | detected_level=~\"$log_level\" |~ \"$search\"",
           "refId": "A",
           "editorMode": "code",
           "queryType": "range",
@@ -621,11 +645,11 @@
           "type": "loki",
           "uid": "${DS_LOKI}"
         },
-        "definition": "label_values(instance)",
+        "definition": "label_values(service_instance_id)",
         "includeAll": true,
         "multi": true,
-        "name": "instance",
-        "query": "label_values(instance)",
+        "name": "service_instance_id",
+        "query": "label_values(service_instance_id)",
         "refresh": 2,
         "sort": 1,
         "type": "query"
@@ -636,13 +660,38 @@
           "text": "All",
           "value": "$__all"
         },
+        "description": "Filter by log severity",
+        "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "log_level",
-        "query": "label_values(level)",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "info",
+            "value": "info"
+          },
+          {
+            "selected": false,
+            "text": "warn",
+            "value": "warn"
+          },
+          {
+            "selected": false,
+            "text": "error",
+            "value": "error"
+          }
+        ],
+        "query": "info,warn,error",
+        "queryValue": "",
         "refresh": 2,
-        "sort": 1,
-        "type": "query"
+        "skipUrlSync": false,
+        "type": "custom"
       },
       {
         "current": {

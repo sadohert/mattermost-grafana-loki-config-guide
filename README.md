@@ -22,8 +22,7 @@ source/
   deploy-loki-log-aggregation.rst   # The main guide (RST, Mattermost docs style)
 config/
   loki-config.yaml                  # Production-ready Loki config (14-day retention)
-  promtail-mattermost.yaml          # Promtail config for Mattermost app servers
-  promtail-postgres.yaml            # Optional: Promtail config for PostgreSQL servers
+  otel-collector-config.yaml        # OpenTelemetry Collector config for logs
 dashboards/
   mattermost-loki-logs.json         # Grafana dashboard (import via UI)
 ```
@@ -38,12 +37,12 @@ dashboards/
 
 ```
 Mattermost Servers          Monitoring Server
-┌─────────────────┐        ┌──────────────────┐
-│ App + Promtail  │──push──│ Loki (:3100)     │
-│ App + Promtail  │──push──│ Prometheus (:9090)│
-│ (optional)      │        │ Grafana (:3000)   │
-│ DB  + Promtail  │──push──│                  │
-└─────────────────┘        └──────────────────┘
+┌──────────────────┐        ┌──────────────────┐
+│ App + OTel Col   │──push──│ Loki (:3100)     │
+│ App + OTel Col   │──push──│ Prometheus (:9090)│
+│ (optional)       │        │ Grafana (:3000)   │
+│ DB  + OTel Col   │──push──│                  │
+└──────────────────┘        └──────────────────┘
 ```
 
 ## Retention
@@ -68,37 +67,22 @@ Key settings to be aware of:
 
 ---
 
-### [promtail-mattermost.yaml](config/promtail-mattermost.yaml)
+### [otel-collector-config.yaml](config/otel-collector-config.yaml)
 
-> **Each Mattermost app server** — install to `/opt/promtail/promtail-config.yaml`
-
-**Placeholders to replace before starting:**
-
-| Placeholder | Replace with |
-|-------------|-------------|
-| `<LOKI_HOST>` | IP or hostname of the monitoring server |
-| `<MM_HOSTNAME>` | This server's hostname (e.g., `mm-app-01`) |
-
-Key settings to be aware of:
-
-- **`__path__`** — Defaults to `/opt/mattermost/logs/mattermost.log`. Change if your install path differs.
-
----
-
-### [promtail-postgres.yaml](config/promtail-postgres.yaml) *(optional)*
-
-> **PostgreSQL server** — install to `/opt/promtail/promtail-config.yaml`
+> **Mattermost and PostgreSQL servers** — install to `/etc/otelcol-contrib/config.yaml`
 
 **Placeholders to replace before starting:**
 
 | Placeholder | Replace with |
 |-------------|-------------|
 | `<LOKI_HOST>` | IP or hostname of the monitoring server |
-| `<PG_HOSTNAME>` | This server's hostname (e.g., `mm-db-01`) |
+| `<HOSTNAME>` | This server's hostname (e.g., `mm-app-01`) |
+| `<SERVICE_NAME>` | The service type (e.g., `mattermost` or `postgres`) |
 
 Key settings to be aware of:
 
-- **`__path__`** — Defaults to `/var/log/postgresql/*.json` (Ubuntu/Debian JSON logging). Adjust if using Text/CSV logs.
+- **`filelog` receivers** — Tails `/opt/mattermost/logs/mattermost.log` and `/var/log/postgresql/*.json`.
+- **`otlphttp` exporter** — Sends data to Loki's OTLP endpoint (Loki 3.0+).
 
 ---
 
@@ -115,7 +99,7 @@ Key settings to be aware of:
 | Top Error Messages | Table ranking most frequent errors (5 min windows) |
 | Log Browser | Searchable, filterable log viewer with template variables |
 
-**Template variables:** `service_name`, `instance`, `log_level`, `search` (free-text)
+**Template variables:** `service_name`, `service_instance_id`, `detected_severity`, `search` (free-text)
 
 ---
 
@@ -126,7 +110,7 @@ Key settings to be aware of:
 1. **Check Log Level**: Ensure your Mattermost server is actually generating logs. If the server is idle and Log Level is set to `ERROR`, the file will be empty.
    - **Fix**: Temporarily set **File Log Level** to `DEBUG` or `INFO` in the System Console to verify flow.
 2. **Check Connectivity**: Run `curl -v http://<LOKI_HOST>:3100/ready` from the app server to verify the firewall is open.
-3. **Check Permissions**: Ensure the `promtail` user can read the log file (e.g., `sudo -u promtail cat /opt/mattermost/logs/mattermost.log`).
+3. **Check Permissions**: Ensure the `otelcol` user can read the log file (e.g., `sudo -u otelcol cat /opt/mattermost/logs/mattermost.log`).
 
 ---
 
@@ -151,7 +135,7 @@ Use this script to demonstrate the power of unified observability in Grafana (Me
 
 3. **Query Logs (Right Panel)**:
    - Data Source: **Loki**.
-   - Filter: `{job="mattermost"} | json | level="error"`
+   - Filter: `{service_name="mattermost"} | json | detected_level="error"`
    - Action: Click **Run Query**.
 
 4. **Correlate**:
