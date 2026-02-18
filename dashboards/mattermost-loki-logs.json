@@ -159,8 +159,8 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=~\"$log_level\" [$__auto])) by (detected_level)",
-          "legendFormat": "{{detected_level}}",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | level=~\"$log_level\" [$__auto])) by (level)",
+          "legendFormat": "{{level}}",
           "refId": "A"
         }
       ]
@@ -222,7 +222,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=\"error\" [$__auto]))",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | level=\"error\" [$__auto]))",
           "refId": "A"
         }
       ]
@@ -283,7 +283,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=\"warn\" [$__auto]))",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | level=\"warn\" [$__auto]))",
           "refId": "A"
         }
       ]
@@ -459,7 +459,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum(rate({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=\"error\" [$__auto])) by (service_instance_id)",
+          "expr": "sum(rate({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | level=\"error\" [$__auto])) by (service_instance_id)",
           "legendFormat": "{{service_instance_id}}",
           "refId": "A"
         }
@@ -522,7 +522,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "topk(10, sum by (service_name, log_message) (count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | detected_level=\"error\" | json | label_format log_message=\"{{or .msg .message}}\" [$__range])))",
+          "expr": "topk(10, sum by (service_name, log_message) (count_over_time({service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | level=\"error\" | label_format log_message=\"{{or .msg .message}}\" [$__range])))",
           "queryType": "instant",
           "refId": "A"
         }
@@ -584,7 +584,7 @@
             "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | detected_level=~\"$log_level\" |~ \"$search\"",
+          "expr": "{service_name=~\"$service_name\", service_instance_id=~\"$service_instance_id\"} | json | level=~\"$log_level\" |~ \"$search\"",
           "refId": "A",
           "editorMode": "code",
           "queryType": "range",

@@ -68,7 +68,7 @@
 
 "With traditional logging, you'd be checking Mattermost application logs on one server, Postgres database logs on another, maybe load balancer logs on a third system. Each with different formats, different timestamps, different access methods. This scattered approach turns a 5-minute investigation into a 30-minute nightmare."
 
-"Today, I'll show you how we solved this with Loki—bringing all logs into one unified view. In the next 5 minutes, you'll see how to explore logs across multiple systems, build a Mission Control dashboard for real-time visibility, and set up the foundation for proactive alerting."
+"Today, I'll show you how we solve this with Loki—bringing all logs into one unified view. In the next 5 minutes, you'll see how to explore logs across multiple systems, build a Mission Control dashboard for real-time visibility, and set up the foundation for proactive alerting."
 
 **Key Moments:**
 - Emphasize the pain: multiple systems, slow investigation
@@ -91,7 +91,7 @@
 
 *[Execute query, show log results streaming in]*
 
-"Notice we have logs flowing in real-time from our load test—collected via OpenTelemetry Collector from each Mattermost server. Every request, every database query, every error—all in one place with consistent timestamps."
+"Notice we have logs flowing in real-time from our demo setup via OpenTelemetry Collector from each Mattermost server. Every request, every database query, every error—all in one place with consistent timestamps."
 
 "But here's where it gets powerful. Let me show you logs from both Mattermost *and* Postgres together."
 
@@ -123,7 +123,7 @@
 
 **Demo Actions:**
 ```logql
-{service_name="mattermost"} | json | detected_level="error"
+{service_name="mattermost"} | json | level="error"
 ```
 
 *[Execute query, show filtered error logs]*
@@ -149,14 +149,14 @@
 
 **Demo Actions:**
 ```logql
-{service_name="postgres"} | json | detected_level="error"
+{service_name="postgres"} | json | level="error"
 ```
 
 *[Execute query - may show no results if DB is healthy]*
 
 **Talking Points:**
 
-"Database looks healthy—no errors. So if we're seeing application errors, we know the database itself isn't the root cause. That single insight just saved us from going down the wrong troubleshooting path."
+"Database looks healthy—no errors. So if we're seeing application errors, we know the database itself is likely not the root cause. That single insight just saved us from going down the wrong troubleshooting path."
 
 "This exploratory workflow—filtering, drilling down, correlating across systems—is what cuts investigation time from 30 minutes to 5 minutes."
 
@@ -182,7 +182,7 @@
 *[Add a new panel]*
 
 ```logql
-sum(count_over_time({service_name="mattermost"} [$__auto])) by (detected_level)
+sum(count_over_time({service_name="mattermost"} | json [$__auto])) by (level)
 ```
 
 *[Configure as time series bar chart showing log volume by level]*
@@ -195,7 +195,7 @@ sum(count_over_time({service_name="mattermost"} [$__auto])) by (detected_level)
 
 **Demo Actions:**
 ```logql
-sum(count_over_time({service_name="mattermost"} | detected_level="error" [$__auto]))
+sum(count_over_time({service_name="mattermost"} | json | level="error" [$__auto]))
 ```
 
 *[Configure as stat panel showing total errors]*
@@ -350,12 +350,12 @@ And third, the guide includes a full set of LogQL query examples for common trou
 - Grafana version: 10.0+ (for modern Loki integration)
 - Loki data source configured and healthy in Grafana
 - Labels used: `service_name="mattermost"`, `service_name="postgres"`, `service_instance_id`
-- Log format: JSON (Mattermost default) with fields like `detected_level`, `status_code`, `msg`
+- Log format: JSON (Mattermost default) with fields like `level`, `status_code`, `msg`
 - OpenTelemetry Collector shipping logs to Loki via OTLP HTTP endpoint (:3100/otlp)
 
 **Queries to Pre-Test:**
 1. `{service_name="mattermost"}` → Should return recent logs
-2. `{service_name="mattermost"} | json | detected_level="error"` → Should return errors (if any)
+2. `{service_name="mattermost"} | json | level="error"` → Should return errors (if any)
 3. `{service_name="mattermost"} | json | status_code >= 400` → Should return HTTP errors (if any)
 4. Dashboard panels should all populate with data
 
@@ -388,7 +388,7 @@ sum(rate(mattermost_api_time_count[5m])) by (instance)
 
 **Demo Actions (Right Panel - Loki):**
 ```logql
-{service_name="mattermost"} | json | detected_level="error"
+{service_name="mattermost"} | json | level="error"
 ```
 
 **Talking Points:**

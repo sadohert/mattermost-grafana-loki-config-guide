@@ -44,7 +44,7 @@ Loki alerts are based on **LogQL**. To create an alert, you must convert a log s
 
 .. tip::
 
-   **Why use sum()?** Using ``sum(...)`` ensures that if the error happens across multiple server instances, the alert evaluates the total count. If you want to alert per-instance, use ``sum(...) by (service_instance_id)``.
+   **Why use sum()?** Using ``sum(...)`` ensures that if the error happens across multiple server instances, the alert evaluates the total count. If you want to alert per-instance — and have ``{{ $labels.service_instance_id }}`` available in your annotation templates — use ``sum(...) by (service_instance_id)`` instead. Labels dropped by aggregation are not available in ``$labels``.
 
 Step 2: Create a Grafana Alert Rule
 -----------------------------------
@@ -66,7 +66,11 @@ Step 2: Create a Grafana Alert Rule
    - **Pending period (For)**: How long the condition must be met before firing (e.g., `0m` for instant alerts, or `5m` to filter out blips).
 6. **Step 4: Add annotations**:
    - **Summary**: "Critical error detected in {{ $labels.service_name }} logs."
-   - **Description**: "{{ $labels.msg }} was detected on instance {{ $labels.service_instance_id }}."
+   - **Description**: "{{ $values.A.Value | printf \"%.0f\" }} matching log lines detected. Search Loki for ``{service_name=\"{{ $labels.service_name }}\"}`` to investigate."
+
+   .. note::
+
+      ``$labels`` contains only the labels that survive your LogQL aggregation. With ``sum(count_over_time(...))`` (no ``by`` clause), only stream selector labels like ``service_name`` are available. If you want ``{{ $labels.service_instance_id }}`` in your annotations, use ``sum(count_over_time(...)) by (service_instance_id)`` in your query — this fires one alert per instance and makes ``service_instance_id`` available in ``$labels``. ``$values.A.Value`` is always available and contains the numeric result of your query.
 
 Step 3: Configure Notifications
 -------------------------------
