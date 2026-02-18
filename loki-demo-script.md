@@ -132,18 +132,18 @@
 
 "There we go—every error from all Mattermost servers, automatically parsed as JSON so I can dig into the details. In a traditional setup, I'd be SSH-ing into multiple servers, running grep commands, correlating timestamps manually. Here, it's instant and unified."
 
-"Now let's get more specific. Let's find all HTTP 4xx and 5xx errors—client and server errors from our API."
+"Now let's get more specific. Say I want to find all log entries related to integrations—maybe I'm troubleshooting a webhook or plugin issue."
 
 **Demo Actions:**
 ```logql
-{service_name="mattermost"} | json | status_code >= 400
+{service_name="mattermost"} | json |= "integration"
 ```
 
 *[Execute query]*
 
 **Talking Points:**
 
-"Perfect. I can see exactly when HTTP errors are happening across all servers. Notice the JSON parsing automatically extracts the status_code field so I can filter on it."
+"There we go—every log line mentioning integrations, across all servers, instantly. The `|=` operator is a simple text filter—no regex needed. I can narrow this down further by combining it with a level filter, or search for any other term relevant to what I'm investigating."
 
 "And because this is unified with our Postgres logs, I can correlate with database activity. Let me show you Postgres errors."
 
@@ -224,27 +224,27 @@ sum(count_over_time({service_name="mattermost"} | json | level="error" [$__auto]
 
 **Talking Points:**
 
-"Now, you don't have to build all of this from scratch. We've already created a comprehensive dashboard called 'Mattermost Log Aggregation' that you can import directly."
+"Now, you don't have to build all of this from scratch. We've already created a reference dashboard called 'Mattermost Log Aggregation' that you can import directly."
 
 *[Navigate to the pre-built "Mattermost Log Aggregation" dashboard]*
 
-"This dashboard includes everything you need: log volume by level, error and warning counters, HTTP 4xx/5xx response tracking, error rate over time broken down by server instance, and even a table showing the top recurring error messages."
+"This dashboard includes everything you need: log volume by level, error and warning counters, HTTP 4xx/5xx response tracking, and a table showing the top recurring error messages for a given period."
 
 *[Scroll through dashboard panels]*
 
-"At the bottom, there's a full log browser with dropdown filters for service name, instance, log level, and free-text search. This becomes your single pane of glass for application health across all systems."
+"At the bottom, there's a full log browser. This becomes your single pane of glass for application health across all systems from a logging standpoint."
 
 "And here's the bigger opportunity: alerting."
 
 *[Point to a panel or metric]*
 
-"Every query you see here can become an alert rule. For example, if the error rate crosses a threshold, trigger a PagerDuty alert. If database connection pools are exhausted, send a Slack notification. You're moving from reactive troubleshooting to proactive incident prevention."
+"Every query you see here can become an alert rule. For example, if the error rate crosses a threshold, trigger a PagerDuty alert. If database connection pools are exhausted, send a notification into a Mattermost channel. You're moving from reactive troubleshooting to proactive incident prevention."
 
 **Talking Points (continued):**
 
 "Let's recap the impact we've seen:
 - Investigation time: from 30 minutes down to 5 minutes
-- Unified visibility: all logs in one place, correlated by timestamp
+- Unified visibility: all logs in one place, correlated by timestamp, and correlated against metrics
 - Proactive alerting: catch issues before they escalate
 - No application changes: this all runs on existing logs"
 
@@ -263,7 +263,7 @@ sum(count_over_time({service_name="mattermost"} | json | level="error" [$__auto]
 
 First, grab the dashboard template—it's in the repository at `dashboards/mattermost-loki-logs.json`. Just import it into Grafana and you're ready to go.
 
-Second, follow the step-by-step configuration guide at `source/deploy-loki-log-aggregation.rst`. It walks you through installing Loki on your monitoring server, deploying the OpenTelemetry Collector to each Mattermost server, and configuring everything for production use.
+Second, follow the step-by-step configuration guide at `source/deploy-loki-log-aggregation.rst`. It walks you through installing Loki on your monitoring server, deploying the OpenTelemetry Collector to each host in the overall service, and configuring everything for production use.
 
 And third, the guide includes a full set of LogQL query examples for common troubleshooting scenarios—HTTP errors, authentication issues, specific server instances—everything you need to get started."
 
@@ -356,7 +356,7 @@ And third, the guide includes a full set of LogQL query examples for common trou
 **Queries to Pre-Test:**
 1. `{service_name="mattermost"}` → Should return recent logs
 2. `{service_name="mattermost"} | json | level="error"` → Should return errors (if any)
-3. `{service_name="mattermost"} | json | status_code >= 400` → Should return HTTP errors (if any)
+3. `{service_name="mattermost"} | json |= "integration"` → Should return integration-related log entries
 4. Dashboard panels should all populate with data
 
 ---
